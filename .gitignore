@@ -1,2 +1,3 @@
 .vagrant
 joincluster.sh
+/kubeconfigs
