@@ -1,14 +1,33 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
+trap 'echo "ERROR: $BASH_SOURCE:$LINENO $BASH_COMMAND" >&2' ERR
+
 # Join worker nodes to the Kubernetes cluster
-echo "[TASK 1] Join node to Kubernetes Cluster"
+echo "[Worker] Join node to Kubernetes Cluster"
 if [[ ! -f /etc/kubernetes/kubelet.conf ]]; then
-	bash /vagrant/joincluster.sh
+	while true; do
+		if [[ -f /vagrant/joincluster.sh ]]; then
+			timeout 30 bash -x /vagrant/joincluster.sh
+			break
+		fi
+		sleep 5
+		echo "[Worker] Join node to Kubernetes Cluster..."
+	done
 fi
 
 mkdir -p ~vagrant/.kube
 rm -f ~vagrant/.kube/config
 
-cp "/vagrant/kubeconfigs/$HOSTNAME" ~vagrant/.kube/config
-chown vagrant:vagrant ~vagrant/.kube
+echo "[Worker] setting up kubeconfig"
+kubeconfig="/vagrant/kubeconfigs/$HOSTNAME"
+while true; do
+	if [[ -f "$kubeconfig" ]]; then
+		cp "$kubeconfig" ~vagrant/.kube/config
+		chown vagrant:vagrant ~vagrant/.kube
+		break
+	fi
+	sleep 5
+	echo "[Worker] setting up kubeconfig..."
+done
+echo "[Worker] done"
