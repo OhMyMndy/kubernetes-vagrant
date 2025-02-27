@@ -1,0 +1,67 @@
+- name: Update APT package index
+  apt:
+    update_cache: true
+
+- name: Install required packages
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - containerd
+      - conntrack # is this necessary for containerd?
+    state: present
+
+
+- name: Create directory for APT keyrings
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add kubernetes keyring
+  timeout: 5
+  shell: |
+    rm -f /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    curl -fsSL "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_major_version }}/deb/Release.key" | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+  changed_when: false
+
+- name: Add kubernetes repo
+  shell: |
+    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_major_version }}/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
+  changed_when: false
+
+- name: Update APT package index
+  apt:
+    update_cache: true
+
+- name: Install Kubernetes packages
+  apt:
+    name:
+      - kubelet={{ kubernetes_major_version }}.{{ kubernetes_minor_version }}-1.1
+      - kubeadm={{ kubernetes_major_version }}.{{ kubernetes_minor_version }}-1.1
+      - kubectl={{ kubernetes_major_version }}.{{ kubernetes_minor_version }}-1.1
+    state: present
+
+- name: Hold Kubernetes packages
+  command: apt-mark hold kubelet kubeadm kubectl
+  changed_when: false
+
+
+- name: Configure sysctl for Kubernetes
+  copy:
+    content: |
+      fs.inotify.max_user_watches = 524288
+      fs.inotify.max_user_instances = 512
+      net.bridge.bridge-nf-call-iptables  = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward = 1
+    dest: /etc/sysctl.d/k8s.conf
+    mode: '0644'
+  register: sysctl
+
+- name: Apply sysctl settings
+  command: sudo sysctl --system
+#  changed_when: sysctl.
+

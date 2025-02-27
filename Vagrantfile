@@ -1,74 +1,94 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-node_count = 1
-
-
-ip_prefix="192.168.0"
-ip_start=100
-
-master_ip = "#{ip_prefix}.#{ip_start}" # .100
-proxy_ip = "#{ip_prefix}.2"
-
-# add service and pod cidr
-# add cni provider
-provision_env = {
-  "MASTER_IP": master_ip,
-  "PROXY_IP": proxy_ip,
-  "WORKER_NODES": node_count,
-  "IP_PREFIX": ip_prefix,
-  "GATEWAY_IP": "#{ip_prefix}.1"
-}
-
 Vagrant.configure(2) do |config|
+  Provider = config.vm.box = ENV['VAGRANT_PROVIDER'] || ENV['VAGRANT_DEFAULT_PROVIDER'] || "virtualbox" # change if needed
 
-  # Change to add more workers
-  Provider = config.vm.box = ENV['VAGRANT_PROVIDER'] || ENV['VAGRANT_DEFAULT_PROVIDER'] || "libvirt" # change if needed
-  config.vm.synced_folder "./", "/vagrant", type: "nfs", nfs_udp: false
-  
-  # global requirements
-  config.vm.provision "shell", path: "requirements.sh", env: provision_env
+  if Provider == 'libvirt'
+    config.vm.synced_folder "./", "/vagrant", type: "nfs", nfs_udp: false
+  end
+
   config.vm.box = "bento/ubuntu-24.04"
 
+  host_groups = {}
+  host_vars = {}
+  hosts = {
+    "master-1": {
+      "ip": "10.1.1.11",
+      "groups": ["control_plane"],
+    },
+    "master-2": {
+      "ip": "10.1.1.12",
+      "groups": ["control_plane"],
+    },
+    "worker-1": {
+      "ip": "10.1.1.21",
+      "node_labels": {
+        "size": "small"
+      },
+      "groups": ["worker"],
+    },
+    "worker-2": {
+      "ip": "10.1.1.22",
+      "groups": ["worker"],
+      "node_labels": {
+        "size": "large"
+      },
+      "memory": 5000,
+      "cpus": 2
+    },
+  }
 
+  hosts.each_with_index do |(host, host_config), i|
+    groups = host_config[:groups]
+    ip = host_config[:ip]
+    memory = host_config[:memory] || 4096
+    cpus = host_config[:cpus] || 2
+    node_labels = host_config[:node_labels] || {}
 
-  config.vm.define "caching-proxy" do |vm|
-    vm.vm.hostname = "caching-proxy"
-    vm.vm.network "private_network", ip: proxy_ip
-    vm.vm.provider Provider do |v|
-      v.memory = 1024
-      v.cpus = 1
-    end
-    vm.vm.provision "shell", path: "caching-proxy.sh" , env: provision_env
-  end
-  # Kubernetes Master
-  config.vm.define "master" do |master|
-    master.vm.hostname = "master"
-    master.vm.network "private_network", ip: master_ip
-    master.vm.provider Provider do |v|
-      v.memory = 4096
-      v.cpus = 2
-    end
-    master.vm.provision "shell", path: "master.sh", env: provision_env
+    config.vm.define host do |vm|
+      vm.vm.hostname = host
 
-  end
-
-  (1..node_count).each do |i|
-    config.vm.define "worker-#{i}" do |worker|
-      worker.vm.hostname = "worker-#{i}"
-      worker.vm.network "private_network", ip: "#{ip_prefix}.#{i+9}"
-      worker.vm.provider Provider do |v|
-        v.memory = 4096
-        v.cpus = 2
+      if Provider == "libvirt"
+        vm.vm.network "private_network", ip: ip
+      elsif Provider == "virtualbox"
+        vm.vm.network "private_network", ip: ip, virtualbox__intnet: true
       end
-      worker.vm.provision "shell", path: "worker.sh", env: provision_env
-      worker.trigger.before :destroy, on_error: :continue do |trigger|
+
+      vm.vm.provider Provider do |v|
+        v.memory = memory
+        v.cpus = cpus
+      end
+
+      groups.each do |group|
+        if not host_groups.key?(group)
+          host_groups[group] = []
+        end
+        host_groups[group].append(host)
+        host_vars[host] = {
+          "node_labels": node_labels
+        }
+      end
+
+      if i == hosts.size - 1
+        vm.vm.provision "ansible" do |ansible|
+          ansible.limit = "all"
+          ansible.groups = host_groups
+          ansible.host_vars = host_vars
+          ansible.playbook = "ansible/main.yml"
+        end
+      end
+
+      vm.trigger.before :destroy, on_error: :continue do |trigger|
         trigger.warn = "Draining node..."
-        trigger.run = {inline: "vagrant ssh master -c \"kubectl cordon worker-#{i} || true\""}
-        trigger.run = {inline: "vagrant ssh master -c \"kubectl drain worker-#{i} || true\""}
-        trigger.run = {inline: "vagrant ssh master -c \"kubectl delete node worker-#{i} || true\"" }
+        # TODO: get first master vm name and replace master-1
+        trigger.run = { inline: "vagrant ssh master-1 -c \"kubectl cordon worker-#{i} || true\"" }
+        trigger.run = { inline: "vagrant ssh master-1 -c \"kubectl drain worker-#{i} || true\"" }
+        trigger.run = { inline: "vagrant ssh master-1 -c \"kubectl delete node worker-#{i} || true\"" }
       end
-
     end
+
   end
+
+
 end
