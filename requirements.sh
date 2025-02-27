@@ -26,8 +26,8 @@ swapoff -a
 echo "[Requirements] set default network interface"
 # Set primary IP
 # TODO: fix this
-sudo ip route del default dev eth0
-sudo ip route add default via "$GATEWAY_IP" dev eth1
+#sudo ip route del default dev eth0
+#sudo ip route add default via "$GATEWAY_IP" dev eth1
 
 
 if [[ ! -f /usr/local/bin/wtfutil ]]; then
@@ -114,6 +114,8 @@ cat <<EOF | sudo tee /etc/sysctl.d/99-kubernetes.conf >/dev/null
 fs.inotify.max_user_watches = 524288
 fs.inotify.max_user_instances = 512
 net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+#net.ipv4.conf.all.send_redirects=0
 EOF
 sysctl --system >/dev/null
 
