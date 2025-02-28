@@ -1,5 +1,11 @@
 # Kubernetes Cluster Setup
 
+Command to run:
+
+```
+ansible-galaxy collection install kubernetes.core
+```
+
 This repository provides a simple way to set up a Kubernetes cluster using Vagrant. It is designed for developers and system administrators who want to quickly create a local Kubernetes environment for testing, learning, or development purposes without the need for complex cloud infrastructure.
 
 ## Description

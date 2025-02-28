@@ -7,32 +7,55 @@
     - name: Disable swap
       ansible.builtin.import_role:
         name: swap
-#        tasks_from: other
+
     - name: Wtfutil
       ansible.builtin.import_role:
         name: wtfutil
-        #        tasks_from: other
+
     - name: Configure hosts
       ansible.builtin.import_role:
         name: configure-hosts
-        #        tasks_from: other
 
-- name: Kubernetes control plane
-  hosts: control_plane
-  become: true
+
+    - name: Install Kubernetes tools
+      ansible.builtin.import_role:
+        name: kubernetes
+        tasks_from: install-tools
+
+- name: Kubernetes init
+  hosts: all
   tasks:
     - name: Install Kubernetes
+#      when: inventory_hostname in (groups['control_plane'] | first)
+      become: true
       ansible.builtin.import_role:
         name: kubernetes
         tasks_from: install
 
-
-- name: Kubernetes join token
-  run_once: true
-  hosts: control_plane
-
-
-- name: Kubernetes workers
-  hosts: worker
+    - name: Configure control plane
+      when: inventory_hostname in (groups['control_plane'] | first)
+      ansible.builtin.import_role:
+        name: kubernetes
+        tasks_from: init-control-plane
 
 
+    # TODO: only create when there are unjoined nodes
+    - name: kubernetes.yml --> Get the join command
+      command: kubeadm token create --print-join-command
+      when: inventory_hostname in (groups['control_plane'] | first)
+      register: k8s_join_command_output
+      become: true
+
+    - name: Kubectl join
+      shell: |
+        set -eu
+        if [ ! -f /etc/kubernetes/pki/ca.crt ]; then
+          eval "{{ hostvars[groups['control_plane'][0]]['k8s_join_command_output']['stdout'] }}"
+        fi
+      when: inventory_hostname in (groups['worker'])
+      become: true
+
+    - name: Configure nodes
+      ansible.builtin.import_role:
+        name: kubernetes
+        tasks_from: configure

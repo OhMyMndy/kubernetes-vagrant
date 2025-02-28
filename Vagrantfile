@@ -13,14 +13,14 @@ Vagrant.configure(2) do |config|
   host_groups = {}
   host_vars = {}
   hosts = {
-    "master-1": {
+    "control-plane-1": {
       "ip": "10.1.1.11",
       "groups": ["control_plane"],
     },
-    "master-2": {
-      "ip": "10.1.1.12",
-      "groups": ["control_plane"],
-    },
+    # "control-plane-2": {
+    #   "ip": "10.1.1.12",
+    #   "groups": ["control_plane"],
+    # },
     "worker-1": {
       "ip": "10.1.1.21",
       "node_labels": {
@@ -28,15 +28,15 @@ Vagrant.configure(2) do |config|
       },
       "groups": ["worker"],
     },
-    "worker-2": {
-      "ip": "10.1.1.22",
-      "groups": ["worker"],
-      "node_labels": {
-        "size": "large"
-      },
-      "memory": 5000,
-      "cpus": 2
-    },
+    # "worker-2": {
+    #   "ip": "10.1.1.22",
+    #   "groups": ["worker"],
+    #   "node_labels": {
+    #     "size": "large"
+    #   },
+    #   "memory": 5000,
+    #   "cpus": 2
+    # },
   }
 
   hosts.each_with_index do |(host, host_config), i|
@@ -49,10 +49,11 @@ Vagrant.configure(2) do |config|
     config.vm.define host do |vm|
       vm.vm.hostname = host
 
-      if Provider == "libvirt"
+
+      if Provider == "virtualbox"
+        vm.vm.network "private_network", ip: ip, virtualbox__intnet: "k8s-vagrant"
+      else
         vm.vm.network "private_network", ip: ip
-      elsif Provider == "virtualbox"
-        vm.vm.network "private_network", ip: ip, virtualbox__intnet: true
       end
 
       vm.vm.provider Provider do |v|
@@ -66,6 +67,7 @@ Vagrant.configure(2) do |config|
         end
         host_groups[group].append(host)
         host_vars[host] = {
+          "node_ip_address": ip,
           "node_labels": node_labels
         }
       end
@@ -79,16 +81,18 @@ Vagrant.configure(2) do |config|
         end
       end
 
-      vm.trigger.before :destroy, on_error: :continue do |trigger|
-        trigger.warn = "Draining node..."
-        # TODO: get first master vm name and replace master-1
-        trigger.run = { inline: "vagrant ssh master-1 -c \"kubectl cordon worker-#{i} || true\"" }
-        trigger.run = { inline: "vagrant ssh master-1 -c \"kubectl drain worker-#{i} || true\"" }
-        trigger.run = { inline: "vagrant ssh master-1 -c \"kubectl delete node worker-#{i} || true\"" }
+      if i == 0
+        vm.trigger.before :destroy, on_error: :continue do |trigger|
+          trigger.warn = "Draining node..."
+          # TODO: get first master vm name and replace control-plane-1
+          trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl cordon worker-#{i} || true\"" }
+          trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl drain worker-#{i} || true\"" }
+          trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl delete node worker-#{i} || true\"" }
+        end
       end
+
     end
 
   end
-
 
 end
