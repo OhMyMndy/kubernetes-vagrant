@@ -2,22 +2,28 @@
 
 - name: Kubeadm init
   become: true
-  shell: |
+  register: ret
+  failed_when: (ret.rc != 0)
+  ansible.builtin.shell: |
     set -eu
-    if [ ! -d /var/lib/etcd ]; then
+    #    kubeadm reset --force
 
+    if [ ! -d /var/lib/etcd/member ]; then
       kubeadm config images pull
-    
+
       kubeadm init --kubernetes-version="{{ kubernetes_major_version }}.{{ kubernetes_minor_version }}"\
           --pod-network-cidr="{{ pod_network_cidr }}" \
           --service-cidr="{{ service_cidr }}" \
           --control-plane-endpoint="{{ node_ip_address }}" \
           --apiserver-advertise-address="{{ node_ip_address }}" \
           --skip-phases=addon/kube-proxy
+    else
+      # Run a kubectl command, it should work since we ran kubeadm before
+      sudo -u vagrant kubectl get nodes
     fi
 
 - name: Get kubeconfig
-  shell: |
+  ansible.builtin.shell: |
     set -eu
     mkdir -p "$HOME/.kube"
     sudo cp /etc/kubernetes/admin.conf "$HOME/.kube/config"
@@ -34,7 +40,7 @@
     name: cilium
     chart_ref: cilium/cilium
     release_namespace: kube-system
-    chart_version: 1.17.1
+    chart_version: "{{ cilium_version }}"
     wait: true
     values:
       egressGateway:
@@ -46,3 +52,8 @@
       k8sServicePort: 6443
       operator:
         replicas: 1
+
+
+# TODO: add:
+#  helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts
+#  helm upgrade --install gatekeeper gatekeeper/gatekeeper --namespace gatekeeper-system --create-namespace --version 3.18.2

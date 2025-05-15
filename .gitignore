@@ -2,3 +2,5 @@
 joincluster.sh
 /kubeconfigs
 .init*
+config.rb
+.env

@@ -1,43 +1,17 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+require_relative 'config.rb'
+host_groups = {}
+host_vars = {}
+hosts = config
+
+
 Vagrant.configure(2) do |config|
   Provider = config.vm.box = ENV['VAGRANT_PROVIDER'] || ENV['VAGRANT_DEFAULT_PROVIDER'] || "virtualbox" # change if needed
 
-  if Provider == 'libvirt'
-    config.vm.synced_folder "./", "/vagrant", type: "nfs", nfs_udp: false
-  end
 
   config.vm.box = "bento/ubuntu-24.04"
-
-  host_groups = {}
-  host_vars = {}
-  hosts = {
-    "control-plane-1": {
-      "ip": "10.1.1.11",
-      "groups": ["control_plane"],
-    },
-    # "control-plane-2": {
-    #   "ip": "10.1.1.12",
-    #   "groups": ["control_plane"],
-    # },
-    "worker-1": {
-      "ip": "10.1.1.21",
-      "node_labels": {
-        "size": "small"
-      },
-      "groups": ["worker"],
-    },
-    # "worker-2": {
-    #   "ip": "10.1.1.22",
-    #   "groups": ["worker"],
-    #   "node_labels": {
-    #     "size": "large"
-    #   },
-    #   "memory": 5000,
-    #   "cpus": 2
-    # },
-  }
 
   hosts.each_with_index do |(host, host_config), i|
     groups = host_config[:groups]
@@ -50,11 +24,10 @@ Vagrant.configure(2) do |config|
       vm.vm.hostname = host
 
 
-      if Provider == "virtualbox"
-        vm.vm.network "private_network", ip: ip, virtualbox__intnet: "k8s-vagrant"
-      else
-        vm.vm.network "private_network", ip: ip
-      end
+      vm.vm.network :private_network,
+        :ip => ip,
+        :virtualbox__intnet => "k8s-vagrant"
+
 
       vm.vm.provider Provider do |v|
         v.memory = memory
@@ -81,18 +54,13 @@ Vagrant.configure(2) do |config|
         end
       end
 
-      if i == 0
-        vm.trigger.before :destroy, on_error: :continue do |trigger|
-          trigger.warn = "Draining node..."
-          # TODO: get first master vm name and replace control-plane-1
-          trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl cordon worker-#{i} || true\"" }
-          trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl drain worker-#{i} || true\"" }
-          trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl delete node worker-#{i} || true\"" }
-        end
+
+      vm.trigger.after :destroy, on_error: :continue do |trigger|
+        trigger.warn = "Draining node..."
+        # TODO: make control-plane-1 dynamic
+        trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl cordon #{host}; kubectl drain #{host}; kubectl delete node #{host}\"" }
       end
-
     end
-
   end
 
 end
