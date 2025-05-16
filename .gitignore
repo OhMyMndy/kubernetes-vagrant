@@ -4,3 +4,4 @@ joincluster.sh
 .init*
 config.rb
 .env
+.idea
