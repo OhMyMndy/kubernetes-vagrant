@@ -6,12 +6,13 @@ The setup contains multiple Vagrant virtual machines (Virtualbox and libvirt are
 
 
 ## Components:
-- Kubernetes 1.32.5, set up with Kubeadm through Ansible playbook
-- Cilium as CNI and for networking policies and Kube Proxy replacement
+- Kubernetes 1.32.4, set up with Kubeadm through Ansible playbook
+- Cilium as CNI and for networking policies and Kubeproxy replacement
 
 
 
 ## Getting started:
 
 Copy `config-example.rb` to `config.rb`
-Run `vagrant up`
+
+Run `vagrant up --provision`

@@ -41,7 +41,7 @@
   become: true
   shell: |
     set -eu
-    #if [ ! -f /etc/kubernetes/pki/ca.crt ]; then
+    if [ ! -f /etc/kubernetes/pki/ca.crt ]; then
       eval "{{ hostvars[groups['control_plane'][0]]['k8s_join_command_control_plane']['stdout'] }} --apiserver-advertise-address={{ node_ip_address }}" 
        
       sudo mkdir -p ~root/.kube  
@@ -49,4 +49,4 @@
     
       mkdir -p ~/.kube
       sudo kubectl config view --flatten > ~/.kube/config
-    #fi
+    fi

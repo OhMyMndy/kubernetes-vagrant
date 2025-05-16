@@ -35,6 +35,8 @@
     repo_url: "https://helm.cilium.io/"
 
 
+
+# TODO: Maybe cordon and drain node before updating Cilium?
 - name: Install Cilium
   kubernetes.core.helm:
     name: cilium
@@ -50,8 +52,8 @@
       kubeProxyReplacement: true
       k8sServiceHost: "{{ node_ip_address }}"
       k8sServicePort: 6443
-      operator:
-        replicas: 1
+#      operator:
+#        replicas: 1
 
 
 # TODO: add:

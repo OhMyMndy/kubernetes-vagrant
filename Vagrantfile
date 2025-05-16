@@ -10,7 +10,7 @@ hosts = config
 Vagrant.configure(2) do |config|
   Provider = config.vm.box = ENV['VAGRANT_PROVIDER'] || ENV['VAGRANT_DEFAULT_PROVIDER'] || "virtualbox" # change if needed
 
-
+  # TODO: append -arm64 when on aarch64
   config.vm.box = "bento/ubuntu-24.04"
 
   hosts.each_with_index do |(host, host_config), i|

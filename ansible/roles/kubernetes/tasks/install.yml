@@ -19,7 +19,7 @@
 - name: Add kubernetes keyring
   timeout: 5
   shell: |
-    set -e
+    set -eu
     rm -f /etc/apt/keyrings/kubernetes-apt-keyring.gpg
     curl -fsSL "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_major_version }}/deb/Release.key" | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
@@ -27,10 +27,17 @@
 
 - name: Add kubernetes repo
   shell: |
-    set -e
+    set -eu
     echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_major_version }}/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
   changed_when: false
 
+
+- name: Unhold Kubernetes packages
+  shell: |
+    if command -v kubelet &>/dev/null; then 
+      apt-mark unhold kubelet kubeadm kubectl
+    fi
+  changed_when: false
 
 - name: Install Kubernetes packages
   apt:
@@ -59,7 +66,7 @@
   register: sysctl
 
 - name: Apply sysctl settings
-  command: sudo sysctl --system
+  command: sysctl --system
 #  changed_when: sysctl.
 
 - name: Check if file exists
@@ -77,3 +84,10 @@
       sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
       systemctl restart containerd
     fi
+
+
+
+- name: Configure kubelet
+  shell: |
+    set -eu
+    echo 'KUBELET_EXTRA_ARGS=--node-ip={{ node_ip_address }}' | sudo tee /etc/default/kubelet &>/dev/null

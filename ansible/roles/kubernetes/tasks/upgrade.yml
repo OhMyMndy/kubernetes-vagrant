@@ -1,0 +1,22 @@
+- name: Upgrade control plane Kubernetes
+  when: inventory_hostname in (groups['control_plane']) and inventory_hostname != (groups['control_plane'] | first)
+
+  become: true
+  shell: |
+    set -eu
+    kubernetes_version="$(kubectl version -o json | jq -r '.serverVersion.gitVersion')"
+
+    if [[ "$kubernetes_version" != "v{{ kubernetes_major_version }}.{{ kubernetes_minor_version }}" ]]; then 
+      kubeadm upgrade {{ kubernetes_major_version }}.{{ kubernetes_minor_version }}
+    fi
+
+- name: Upgrade Kubernetes workers
+  when: inventory_hostname in (groups['worker'])
+  become: true
+  shell: |
+    set -eu
+    kubernetes_version="$(kubectl version -o json | jq -r '.serverVersion.gitVersion')"
+
+    if [[ "$kubernetes_version" != "v{{ kubernetes_major_version }}.{{ kubernetes_minor_version }}" ]]; then 
+      kubeadm upgrade {{ kubernetes_major_version }}.{{ kubernetes_minor_version }}
+    fi

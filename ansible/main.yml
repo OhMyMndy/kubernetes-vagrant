@@ -47,6 +47,11 @@
         name: kubernetes
         tasks_from: join
 
+    - name: Kubernetes upgrade
+      ansible.builtin.import_role:
+        name: kubernetes
+        tasks_from: upgrade
+
     - name: Configure nodes
       ansible.builtin.import_role:
         name: kubernetes
