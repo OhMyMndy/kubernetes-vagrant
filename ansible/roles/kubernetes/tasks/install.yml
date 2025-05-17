@@ -6,6 +6,7 @@
       - curl
       - containerd
       - conntrack # is this necessary for containerd?
+      - bash-completion
     state: present
     update_cache: true
 
@@ -35,7 +36,7 @@
 - name: Unhold Kubernetes packages
   shell: |
     if command -v kubelet &>/dev/null; then 
-      apt-mark unhold kubelet kubeadm kubectl
+      apt-mark unhold kubelet kubeadm kubectl || true 
     fi
   changed_when: false
 
@@ -51,6 +52,9 @@
 - name: Hold Kubernetes packages
   command: apt-mark hold kubelet kubeadm kubectl
   changed_when: false
+
+# TODO: add to host if linux:
+#  sysctl net.ipv4.ip_unprivileged_port_start=0
 
 
 - name: Configure sysctl for Kubernetes

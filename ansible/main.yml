@@ -1,6 +1,20 @@
 ---
+- name: Haproxy
+  hosts: haproxy
+  become: true
+  any_errors_fatal: true
+  tasks:
+    - name: Set facts
+      set_fact:
+        arch: "{{ 'arm64' if ansible_facts.architecture == 'aarch64' else 'amd64' }}"
+
+    - name: Haproxy install and setup
+      ansible.builtin.import_role:
+        name: haproxy
+        tasks_from: main
+
 - name: Dependencies
-  hosts: all
+  hosts: kubernetes
   become: true
   any_errors_fatal: true
   tasks:
@@ -26,7 +40,7 @@
         tasks_from: install-tools
 
 - name: Kubernetes init
-  hosts: all
+  hosts: kubernetes
   any_errors_fatal: true
   tasks:
     - name: Install Kubernetes
@@ -56,3 +70,8 @@
       ansible.builtin.import_role:
         name: kubernetes
         tasks_from: configure
+
+    - name: Finalize
+      ansible.builtin.import_role:
+        name: kubernetes
+        tasks_from: finalize

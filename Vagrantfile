@@ -35,7 +35,7 @@ Vagrant.configure(2) do |config|
       end
 
       groups.each do |group|
-        if not host_groups.key?(group)
+        unless host_groups.key?(group)
           host_groups[group] = []
         end
         host_groups[group].append(host)
@@ -43,6 +43,15 @@ Vagrant.configure(2) do |config|
           "node_ip_address": ip,
           "node_labels": node_labels
         }
+
+        # TODO: only works for one haproxy instance
+        if group == "haproxy"
+          # # TODO, make them configurable
+          vm.vm.network "forwarded_port", guest: 80, host: 80
+          vm.vm.network "forwarded_port", guest: 443, host: 443
+
+        end
+
       end
 
       if i == hosts.size - 1
@@ -58,7 +67,7 @@ Vagrant.configure(2) do |config|
       vm.trigger.after :destroy, on_error: :continue do |trigger|
         trigger.warn = "Draining node..."
         # TODO: make control-plane-1 dynamic
-        trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl cordon #{host}; kubectl drain #{host}; kubectl delete node #{host}\"" }
+        trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl cordon #{host}; kubectl drain --ignore-daemonsets #{host}; kubectl delete node #{host}\"" }
       end
     end
   end

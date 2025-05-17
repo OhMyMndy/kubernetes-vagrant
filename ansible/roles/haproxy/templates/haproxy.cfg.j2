@@ -1,0 +1,69 @@
+global
+    log /dev/log local0 info
+    #chroot      /var/lib/haproxy
+    pidfile     /var/run/haproxy.pid
+    maxconn     4000
+    user        haproxy
+    group       haproxy
+    daemon
+    stats socket /var/lib/haproxy/stats
+    # Default SSL material locations
+    ca-base  /etc/ssl/certs
+    crt-base /etc/ssl/private
+
+    # See: https://ssl-config.mozilla.org/#server-side-tls
+    ssl-default-bind-ciphers ECDH+AESGCM:!DH
+    ssl-default-bind-options no-sslv3
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+        timeout connect 5000
+        timeout client  50000
+        timeout server  50000
+    errorfile 400 /etc/haproxy/errors/400.http
+    errorfile 403 /etc/haproxy/errors/403.http
+    errorfile 408 /etc/haproxy/errors/408.http
+    errorfile 500 /etc/haproxy/errors/500.http
+    errorfile 502 /etc/haproxy/errors/502.http
+    errorfile 503 /etc/haproxy/errors/503.http
+    errorfile 504 /etc/haproxy/errors/504.http
+
+# HTTP Frontend
+frontend http_frontend
+    bind *:80
+    default_backend worker
+
+# HTTPS Frontend (TCP Mode) -- No SSL termination at HAProxy
+frontend https_frontend
+    bind *:443
+    mode tcp
+    default_backend worker_https
+
+# HTTP Backend
+backend worker
+    balance roundrobin
+    mode http
+    #option httpchk GET /
+    {% for server in groups['worker'] %}
+    server {{ server }} {{ hostvars[server]['node_ip_address'] }}:80 check
+    {% endfor %}
+
+# HTTPS Backend (TCP Mode)
+backend worker_https
+    mode tcp
+    balance roundrobin
+    {% for server in groups['worker'] %}
+    server {{ server }}_ssl {{ hostvars[server]['node_ip_address'] }}:443 check
+    {% endfor %}
+
+
+# Example stats page
+listen stats
+    bind *:9000
+    stats enable
+    stats uri /
+    stats realm Haproxy\ Statistics
+    stats auth admin:password  # Change this!

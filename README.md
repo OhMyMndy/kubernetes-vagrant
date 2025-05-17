@@ -10,9 +10,20 @@ The setup contains multiple Vagrant virtual machines (Virtualbox and libvirt are
 - Cilium as CNI and for networking policies and Kubeproxy replacement
 
 
+## Features
+
+- Setup and configuration through Ansible
+- Automatic upgrading of Kubernetes version when changing Kubernetes version in Ansible config
+- Adding new nodes with `vagrant up --provision` after adding node in `config.rb`
+
 
 ## Getting started:
 
 Copy `config-example.rb` to `config.rb`
 
 Run `vagrant up --provision`
+
+
+## To do
+
+- Graceful upgrades of Kubernetes nodes (cordon and drain before upgrading)

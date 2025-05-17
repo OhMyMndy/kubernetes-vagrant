@@ -1,0 +1,37 @@
+
+# Install ingress when we have nodes, otherwise it will fail because there are no nodes to schedule the pods on
+- name: Ingress
+  when: inventory_hostname == (groups['control_plane'] | first)
+  ansible.builtin.shell: |
+    set -eu
+    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+    
+    helm upgrade --install ingress-nginx --namespace=ingress-nginx --create-namespace \
+      --set rbac.create=true,controller.kind=DaemonSet,controller.service.type=ClusterIP,controller.hostNetwork=true \
+      --set controller.ingressClassResource.default=true ingress-nginx/ingress-nginx
+
+
+
+
+- name: Gatekeeper
+  when: inventory_hostname == (groups['control_plane'] | first)
+
+  ansible.builtin.shell: |
+    set -eu
+    helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts
+    
+    helm upgrade --install gatekeeper gatekeeper/gatekeeper --namespace gatekeeper-system --create-namespace --version 3.18.2
+
+
+- name: Argo CD
+  when: inventory_hostname == (groups['control_plane'] | first)
+
+  ansible.builtin.shell: |
+    set -eu
+    helm repo add argo https://argoproj.github.io/argo-helm
+    
+
+    helm upgrade -i --set server.ingress.enabled=true\
+      --set global.domain=argocd.127.0.0.1.sslip.io \
+      --set "configs.params.server\.insecure=true" \
+      --create-namespace -n argo-cd argo-cd argo/argo-cd
