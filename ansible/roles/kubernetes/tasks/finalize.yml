@@ -64,6 +64,44 @@
       selfSigned: {}
     EOF
 
+- name: stakater Repo
+  kubernetes.core.helm_repository:
+    name: stakater
+    repo_url: "https://stakater.github.io/stakater-charts"
+
+- name: Reloader
+  kubernetes.core.helm:
+    name: reloader
+    chart_ref: stakater/reloader
+    release_namespace: reloader
+#    chart_version: "1.17.2"
+    create_namespace: true
+    wait: true
+    values:
+      reloader:
+        autoReloadAll: true
+
+- name: Longhorn Repo
+  kubernetes.core.helm_repository:
+    name: longhorn
+    repo_url: "https://charts.longhorn.io"
+
+- name: Longhorn
+  kubernetes.core.helm:
+    name: longhorn
+    chart_ref: longhorn/longhorn
+    release_namespace: longhorn-system
+    chart_version: "1.8.1"
+    create_namespace: true
+    wait: true
+    values:
+      ingress:
+        enabled: true
+        tls: true
+        host: longhorn.127.0.0.1.sslip.io
+        annotations:
+          # todo: make this work
+          cert-manager.io/cluster-issuer: selfsigned-issuer
 
 - name: Argo Repo
   kubernetes.core.helm_repository:
@@ -72,9 +110,9 @@
 
 - name: ArgoCD
   kubernetes.core.helm:
-    name: argo-cd
+    name: argocd
     chart_ref: argo/argo-cd
-    release_namespace: argo-cd
+    release_namespace: argocd
 #    chart_version: "{{ cilium_version }}"
     create_namespace: true
     wait: true
@@ -82,9 +120,77 @@
       global:
         domain: argocd.127.0.0.1.sslip.io
       server:
+#        params:
+#          server.insecure: true
+        # TODO: test this grpc with argocd proj list
+        ingressGrpc:
+          enabled: true
+          tls: true
         ingress:
           enabled: true
           tls: true
           annotations:
             cert-manager.io/cluster-issuer: selfsigned-issuer
             nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+#            nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+#            nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+          extraHosts:
+            - name: argocd.{{ hostvars["haproxy-1"]['node_ip_address'] }}.sslip.io
+              path: /
+
+- name: Gitea repo
+  kubernetes.core.helm_repository:
+    name: gitea-charts
+    repo_url: "https://dl.gitea.com/charts/"
+
+- name: Gitea
+  kubernetes.core.helm:
+    name: gitea
+    chart_ref: gitea-charts/gitea
+    release_namespace: gitea
+    #    chart_version: "{{ cilium_version }}"
+    create_namespace: true
+    wait: true
+    values:
+      valkey-cluster:
+        enabled: false
+      valkey:
+        enabled: true
+        primary:
+          persistence:
+            size: 2Gi
+
+      postgresql-ha:
+        enabled: false
+      postgresql:
+        enabled: true
+        primary:
+          persistence:
+            size: 5Gi
+      persistence:
+        enabled: true
+        size: 5Gi
+      gitea:
+        config:
+          database:
+            DB_TYPE: postgres
+          indexer:
+            ISSUE_INDEXER_TYPE: bleve
+            REPO_INDEXER_ENABLED: true
+      ingress:
+        enabled: true
+        annotations:
+          cert-manager.io/cluster-issuer: selfsigned-issuer
+        hosts:
+          - host: gitea.127.0.0.1.sslip.io
+            paths:
+            - path: /
+          - host: gitea.{{ hostvars["haproxy-1"]['node_ip_address'] }}.sslip.io
+            paths:
+              - path: /
+        tls:
+          - secretName: gitea-tls
+            hosts:
+              - gitea.127.0.0.1.sslip.io
+              - gitea.{{ hostvars["haproxy-1"]['node_ip_address'] }}.sslip.io
+

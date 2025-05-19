@@ -1,4 +1,4 @@
-- name: Install helm if not exists
+- name: Install Helm
   unarchive:
     src: https://get.helm.sh/helm-v{{ helm_version }}-linux-{{ arch }}.tar.gz
     dest: /usr/local/bin
@@ -10,16 +10,13 @@
   args:
     creates: /usr/local/bin/helm
 
+- name: Kube bench
+  ansible.builtin.apt:
+    deb: https://github.com/aquasecurity/kube-bench/releases/download/v0.10.4/kube-bench_0.10.4_linux_{{ arch }}.deb
 
-- name: Add kube-bench
-  become: true
-  timeout: 20
-  shell: |
-    if ! command -v kube-bench &>/dev/null; then
-      cd /tmp
-      curl -SsL https://github.com/aquasecurity/kube-bench/releases/download/v0.10.4/kube-bench_0.10.4_linux_{{ arch }}.deb -o kube-bench.deb
-      dpkg -i kube-bench.deb
-      rm -f kube-bench.deb
-    fi
 
-  changed_when: false
+- name: Install Argocd cli
+  ansible.builtin.get_url:
+    url: https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-{{ arch }}
+    dest: /usr/local/bin/argocd
+    mode: '0755'

@@ -19,6 +19,7 @@ Vagrant.configure(2) do |config|
     memory = host_config[:memory] || 4096
     cpus = host_config[:cpus] || 2
     node_labels = host_config[:node_labels] || {}
+    disk_size = host_config[:disk_size] || "12GB"
 
     config.vm.define host do |vm|
       vm.vm.hostname = host
@@ -33,7 +34,7 @@ Vagrant.configure(2) do |config|
         v.memory = memory
         v.cpus = cpus
       end
-
+      vm.vm.disk :disk, size: disk_size, primary: true
       groups.each do |group|
         unless host_groups.key?(group)
           host_groups[group] = []
@@ -67,7 +68,7 @@ Vagrant.configure(2) do |config|
       vm.trigger.after :destroy, on_error: :continue do |trigger|
         trigger.warn = "Draining node..."
         # TODO: make control-plane-1 dynamic
-        trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl cordon #{host}; kubectl drain --ignore-daemonsets #{host}; kubectl delete node #{host}\"" }
+        trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl cordon #{host}; kubectl drain --ignore-daemonsets --delete-emptydir-data #{host}; kubectl delete node #{host}\"" }
       end
     end
   end

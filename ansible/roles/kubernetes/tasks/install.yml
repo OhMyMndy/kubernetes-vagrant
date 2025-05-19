@@ -53,6 +53,9 @@
   command: apt-mark hold kubelet kubeadm kubectl
   changed_when: false
 
+
+# TODO: add source <(kubectl completion bash) to ~/.bashrc
+
 # TODO: add to host if linux:
 #  sysctl net.ipv4.ip_unprivileged_port_start=0
 

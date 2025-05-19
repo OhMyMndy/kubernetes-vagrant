@@ -42,6 +42,11 @@ frontend https_frontend
     mode tcp
     default_backend worker_https
 
+frontend kube_api
+    bind *:6443
+    mode tcp
+    default_backend control_plane
+
 # HTTP Backend
 backend worker
     balance roundrobin
@@ -58,6 +63,16 @@ backend worker_https
     {% for server in groups['worker'] %}
     server {{ server }}_ssl {{ hostvars[server]['node_ip_address'] }}:443 check
     {% endfor %}
+
+
+# HTTPS Backend (TCP Mode)
+backend control_plane
+    mode tcp
+    balance roundrobin
+    {% for server in groups['control_plane'] %}
+    server {{ server }}_ssl {{ hostvars[server]['node_ip_address'] }}:6443 check
+    {% endfor %}
+
 
 
 # Example stats page
