@@ -72,6 +72,7 @@
         tasks_from: configure
 
     - name: Finalize
+      when: inventory_hostname == (groups['control_plane'] | first)
       ansible.builtin.import_role:
         name: kubernetes
         tasks_from: finalize

@@ -1,37 +1,90 @@
+- name: Ingress Nginx Repo
+  kubernetes.core.helm_repository:
+    name: ingress-nginx
+    repo_url: "https://kubernetes.github.io/ingress-nginx"
 
-# Install ingress when we have nodes, otherwise it will fail because there are no nodes to schedule the pods on
 - name: Ingress
-  when: inventory_hostname == (groups['control_plane'] | first)
-  ansible.builtin.shell: |
-    set -eu
-    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-    
-    helm upgrade --install ingress-nginx --namespace=ingress-nginx --create-namespace \
-      --set rbac.create=true,controller.kind=DaemonSet,controller.service.type=ClusterIP,controller.hostNetwork=true \
-      --set controller.ingressClassResource.default=true ingress-nginx/ingress-nginx
+  kubernetes.core.helm:
+    name: ingress-nginx
+    chart_ref: ingress-nginx/ingress-nginx
+    release_namespace: ingress-nginx
+    #    chart_version: "{{ cilium_version }}"
+    create_namespace: true
+    wait: true
+    values:
+      rbac:
+        create: true
+      controller:
+        kind: DaemonSet
+        service:
+          type: ClusterIP
+        hostNetwork: true
+        ingressClassResource:
+          default: true
 
-
-
+- name: Gatekeeper Repo
+  kubernetes.core.helm_repository:
+    name: gatekeeper
+    repo_url: "https://open-policy-agent.github.io/gatekeeper/charts"
 
 - name: Gatekeeper
-  when: inventory_hostname == (groups['control_plane'] | first)
+  kubernetes.core.helm:
+    name: gatekeeper
+    chart_ref: gatekeeper/gatekeeper
+    release_namespace: gatekeeper-system
+    chart_version: "3.18.2"
+    create_namespace: true
+    wait: true
 
+
+- name: Jetstack Repo
+  kubernetes.core.helm_repository:
+    name: jetstack
+    repo_url: "https://charts.jetstack.io"
+
+- name: Cert manager
+  kubernetes.core.helm:
+    name: cert-manager
+    chart_ref: jetstack/cert-manager
+    release_namespace: cert-manager
+    chart_version: "1.17.2"
+    create_namespace: true
+    wait: true
+    values:
+      installCRDs: true
+
+- name: Cert manager
   ansible.builtin.shell: |
-    set -eu
-    helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts
-    
-    helm upgrade --install gatekeeper gatekeeper/gatekeeper --namespace gatekeeper-system --create-namespace --version 3.18.2
+    cat <<EOF | kubectl apply -f -
+    apiVersion: cert-manager.io/v1
+    kind: ClusterIssuer
+    metadata:
+      name: selfsigned-issuer
+    spec:
+      selfSigned: {}
+    EOF
 
 
-- name: Argo CD
-  when: inventory_hostname == (groups['control_plane'] | first)
+- name: Argo Repo
+  kubernetes.core.helm_repository:
+    name: argo
+    repo_url: "https://argoproj.github.io/argo-helm"
 
-  ansible.builtin.shell: |
-    set -eu
-    helm repo add argo https://argoproj.github.io/argo-helm
-    
-
-    helm upgrade -i --set server.ingress.enabled=true\
-      --set global.domain=argocd.127.0.0.1.sslip.io \
-      --set "configs.params.server\.insecure=true" \
-      --create-namespace -n argo-cd argo-cd argo/argo-cd
+- name: ArgoCD
+  kubernetes.core.helm:
+    name: argo-cd
+    chart_ref: argo/argo-cd
+    release_namespace: argo-cd
+#    chart_version: "{{ cilium_version }}"
+    create_namespace: true
+    wait: true
+    values:
+      global:
+        domain: argocd.127.0.0.1.sslip.io
+      server:
+        ingress:
+          enabled: true
+          tls: true
+          annotations:
+            cert-manager.io/cluster-issuer: selfsigned-issuer
+            nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
