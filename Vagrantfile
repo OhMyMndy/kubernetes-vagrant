@@ -1,40 +1,76 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+require_relative 'config.rb'
+host_groups = {}
+host_vars = {}
+hosts = config
+
+
 Vagrant.configure(2) do |config|
+  Provider = config.vm.box = ENV['VAGRANT_PROVIDER'] || ENV['VAGRANT_DEFAULT_PROVIDER'] || "virtualbox" # change if needed
 
-  # Change to add more workers
-  NodeCount = 1
-  Provider = "vmware_desktop" # change if needed
-  
-  # global requirements
-  config.vm.provision "shell", path: "requirements.sh", :args => NodeCount
-  config.vm.box = "bento/ubuntu-22.04-arm64" # change if needed 
+  # TODO: append -arm64 when on aarch64
+  config.vm.box = "bento/ubuntu-24.04"
 
-  # Kubernetes Master
-  config.vm.define "master" do |master|
-    master.vm.hostname = "master"
-    master.vm.network "private_network", ip: "192.168.10.100"
-    master.vm.provider Provider do |v|
-      v.memory = 4096
-      v.cpus = 4
-      v.gui = true
-    end
-    master.vm.provision "shell", path: "master.sh"
-    master.vm.box_download_insecure = true
-  end
+  hosts.each_with_index do |(host, host_config), i|
+    groups = host_config[:groups]
+    ip = host_config[:ip]
+    memory = host_config[:memory] || 4096
+    cpus = host_config[:cpus] || 2
+    node_labels = host_config[:node_labels] || {}
+    disk_size = host_config[:disk_size] || "12GB"
 
-  (1..NodeCount).each do |i|
-    config.vm.define "worker#{i}" do |worker|
-      worker.vm.hostname = "worker#{i}"
-      worker.vm.network "private_network", ip: "192.168.10.#{i+1}"
-      worker.vm.provider Provider do |v|
-        v.memory = 4096
-        v.cpus = 2
-        v.gui = true
+    config.vm.define host do |vm|
+      vm.vm.hostname = host
+
+
+      vm.vm.network :private_network,
+        :ip => ip,
+        :virtualbox__intnet => "k8s-vagrant"
+
+
+      vm.vm.provider Provider do |v|
+        v.memory = memory
+        v.cpus = cpus
       end
-      worker.vm.provision "shell", path: "worker.sh"
-      worker.vm.box_download_insecure = true
+      vm.vm.disk :disk, size: disk_size, primary: true
+      groups.each do |group|
+        unless host_groups.key?(group)
+          host_groups[group] = []
+        end
+        host_groups[group].append(host)
+        host_vars[host] = {
+          "node_ip_address": ip,
+          "node_labels": node_labels
+        }
+
+        # TODO: only works for one haproxy instance
+        if group == "haproxy"
+          # # TODO, make them configurable
+          vm.vm.network "forwarded_port", guest: 80, host: 80
+          vm.vm.network "forwarded_port", guest: 443, host: 443
+
+        end
+
+      end
+
+      if i == hosts.size - 1
+        vm.vm.provision "ansible" do |ansible|
+          ansible.limit = "all"
+          ansible.groups = host_groups
+          ansible.host_vars = host_vars
+          ansible.playbook = "ansible/main.yml"
+        end
+      end
+
+
+      vm.trigger.after :destroy, on_error: :continue do |trigger|
+        trigger.warn = "Draining node..."
+        # TODO: make control-plane-1 dynamic
+        trigger.run = { inline: "vagrant ssh control-plane-1 -c \"kubectl cordon #{host}; kubectl drain --ignore-daemonsets --delete-emptydir-data #{host}; kubectl delete node #{host}\"" }
+      end
     end
   end
+
 end

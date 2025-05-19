@@ -1,0 +1,52 @@
+# TODO: only create when there are unjoined nodes
+- name: Get workers join command
+  command: kubeadm token create --print-join-command
+  when: inventory_hostname == (groups['control_plane'] | first)
+  register: k8s_join_command
+  failed_when: k8s_join_command.rc != 0
+  become: true
+
+
+
+
+- name: Get control planes join command
+  when: inventory_hostname == (groups['control_plane'] | first)
+  register: k8s_join_command_control_plane
+  become: true
+  failed_when: k8s_join_command_control_plane.rc != 0
+  shell: |
+    set -eu
+    echo $(kubeadm token create --print-join-command) --control-plane \
+      --certificate-key $(kubeadm init phase upload-certs --upload-certs 2>/dev/null | grep -vw -e certificate -e Namespace)
+
+
+- name: Kubectl worker join
+  when: inventory_hostname in (groups['worker'])
+  become: true
+  shell: |
+    set -eu
+    if [ ! -f /etc/kubernetes/pki/ca.crt ]; then
+      eval "{{ hostvars[groups['control_plane'][0]]['k8s_join_command']['stdout'] }}"
+
+      sudo mkdir -p ~root/.kube  
+      sudo cp /etc/kubernetes/kubelet.conf ~root/.kube/config
+    
+      mkdir -p ~/.kube
+      sudo kubectl config view --flatten > ~/.kube/config
+    fi
+
+
+- name: Kubectl control plane join
+  when: inventory_hostname in (groups['control_plane']) and inventory_hostname != (groups['control_plane'] | first)
+  become: true
+  shell: |
+    set -eu
+    if [ ! -f /etc/kubernetes/pki/ca.crt ]; then
+      eval "{{ hostvars[groups['control_plane'][0]]['k8s_join_command_control_plane']['stdout'] }} --apiserver-advertise-address={{ node_ip_address }}" 
+       
+      sudo mkdir -p ~root/.kube  
+      sudo cp /etc/kubernetes/admin.conf ~root/.kube/config
+    
+      mkdir -p ~/.kube
+      sudo kubectl config view --flatten > ~/.kube/config
+    fi

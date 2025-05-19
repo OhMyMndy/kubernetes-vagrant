@@ -1,0 +1,32 @@
+
+- name: Check if wtfutil is already installed
+  stat:
+    path: /usr/local/bin/wtfutil
+  register: wtfutil_stat
+
+- name: Download wtfutil tarball
+  get_url:
+    url: "https://github.com/wtfutil/wtf/releases/download/v0.43.0/wtf_0.43.0_linux_amd64.tar.gz"
+    dest: "/tmp/wtf_0.43.0_linux_amd64.tar.gz"
+  when: not wtfutil_stat.stat.exists
+
+- name: Extract wtfutil from tarball
+  unarchive:
+    src: "/tmp/wtf_0.43.0_linux_amd64.tar.gz"
+    dest: "/tmp/"
+    remote_src: yes
+  when: not wtfutil_stat.stat.exists
+
+- name: Move wtfutil to /usr/local/bin
+  become: true
+  command: mv /tmp/wtf_0.43.0_linux_amd64/wtfutil /usr/local/bin/
+#  args:
+#    removes: /usr/local/bin/wtfutil
+  when: not wtfutil_stat.stat.exists
+
+- name: Make wtfutil executable
+  become: true
+  file:
+    path: /usr/local/bin/wtfutil
+    mode: '0755'
+  when: not wtfutil_stat.stat.exists

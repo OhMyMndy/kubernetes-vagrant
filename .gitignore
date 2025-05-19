@@ -1,2 +1,7 @@
 .vagrant
 joincluster.sh
+/kubeconfigs
+.init*
+config.rb
+.env
+.idea
