@@ -24,6 +24,24 @@ Copy `config-example.rb` to `config.rb`
 Run `vagrant up --provision`
 
 
+# Applications
+
+### N8n
+
+https://n8n.192.168.56.190.sslip.io/
+
+username: `admin`
+
+password `Password123!`
+
+### Gitea
+
+https://gitea.192.168.56.190.sslip.io/
+
+username: `gitea_admin`
+
+password `r8sA8CPHD9!bt6d`
+
 ## To do
 
 - Graceful upgrades of Kubernetes nodes (cordon and drain before upgrading)

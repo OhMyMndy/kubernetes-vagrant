@@ -98,9 +98,8 @@
       ingress:
         enabled: true
         tls: true
-        host: longhorn.127.0.0.1.sslip.io
+        host: longhorn.192.168.56.190.sslip.io
         annotations:
-          # todo: make this work
           cert-manager.io/cluster-issuer: selfsigned-issuer
 
 - name: Argo Repo
@@ -118,10 +117,8 @@
     wait: true
     values:
       global:
-        domain: argocd.127.0.0.1.sslip.io
+        domain: argocd.192.168.56.190.sslip.io
       server:
-#        params:
-#          server.insecure: true
         # TODO: test this grpc with argocd proj list
         ingressGrpc:
           enabled: true
@@ -132,11 +129,9 @@
           annotations:
             cert-manager.io/cluster-issuer: selfsigned-issuer
             nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-#            nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-#            nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-          extraHosts:
-            - name: argocd.{{ hostvars["haproxy-1"]['node_ip_address'] }}.sslip.io
-              path: /
+#          extraHosts:
+#            - name: argocd.{{ hostvars["haproxy-1"]['node_ip_address'] }}.sslip.io
+#              path: /
 
 - name: Gitea repo
   kubernetes.core.helm_repository:
@@ -156,20 +151,26 @@
         enabled: false
       valkey:
         enabled: true
-        primary:
-          persistence:
-            size: 2Gi
+#        primary:
+#          persistence:
+#            size: 2Gi
 
       postgresql-ha:
         enabled: false
       postgresql:
         enabled: true
-        primary:
-          persistence:
-            size: 5Gi
+#        primary:
+#          persistence:
+#            size: 5Gi
       persistence:
         enabled: true
-        size: 5Gi
+#        size: 5Gi
+      deployment:
+        env:
+          - name: GITEA__webhook__ALLOWED_HOST_LIST
+            value: n8n.192.168.56.190.sslip.io
+          - name: GITEA__webhook__SKIP_TLS_VERIFY
+            value: "true"
       gitea:
         config:
           database:
@@ -179,18 +180,20 @@
             REPO_INDEXER_ENABLED: true
       ingress:
         enabled: true
+        className: nginx
         annotations:
           cert-manager.io/cluster-issuer: selfsigned-issuer
         hosts:
-          - host: gitea.127.0.0.1.sslip.io
+          - host: gitea.192.168.56.190.sslip.io
             paths:
             - path: /
-          - host: gitea.{{ hostvars["haproxy-1"]['node_ip_address'] }}.sslip.io
-            paths:
-              - path: /
+
         tls:
           - secretName: gitea-tls
             hosts:
               - gitea.127.0.0.1.sslip.io
               - gitea.{{ hostvars["haproxy-1"]['node_ip_address'] }}.sslip.io
+              - gitea.192.168.56.190.sslip.io
+
+
 

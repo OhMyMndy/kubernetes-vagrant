@@ -50,6 +50,8 @@ Vagrant.configure(2) do |config|
           # # TODO, make them configurable
           vm.vm.network "forwarded_port", guest: 80, host: 80
           vm.vm.network "forwarded_port", guest: 443, host: 443
+          vm.vm.network "private_network", ip: "192.168.56.190"
+        end
 
         if group == "worker"
           vm.vm.disk :disk, name: "longhorn", size: "100GB"
