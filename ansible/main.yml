@@ -18,6 +18,12 @@
   become: true
   any_errors_fatal: true
   tasks:
+
+    - name: Disk
+      when: inventory_hostname in (groups['worker'] | first)
+      ansible.builtin.import_role:
+        name: disk
+
     - name: Set facts
       set_fact:
         arch: "{{ 'arm64' if ansible_facts.architecture == 'aarch64' else 'amd64' }}"
@@ -25,9 +31,9 @@
       ansible.builtin.import_role:
         name: swap
 
-    - name: Wtfutil
-      ansible.builtin.import_role:
-        name: wtfutil
+#    - name: Wtfutil
+#      ansible.builtin.import_role:
+#        name: wtfutil
 
 #    - name: Configure hosts
 #      ansible.builtin.import_role:

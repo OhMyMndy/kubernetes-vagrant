@@ -1,0 +1,15 @@
+- name: Resize disk
+  shell: |
+    lvresize -l +100%FREE /dev/ubuntu-vg/ubuntu-lv --resizefs
+
+- name: Format disk
+  filesystem:
+    fstype: ext4
+    dev: "/dev/sdb"
+
+- name: Mount disk
+  mount:
+    fstype: ext4
+    src: "/dev/sdb"
+    path: "/var/lib/longhorn"
+    state: mounted
