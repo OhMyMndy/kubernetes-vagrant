@@ -191,9 +191,202 @@
         tls:
           - secretName: gitea-tls
             hosts:
-              - gitea.127.0.0.1.sslip.io
-              - gitea.{{ hostvars["haproxy-1"]['node_ip_address'] }}.sslip.io
               - gitea.192.168.56.190.sslip.io
 
 
+- name: Hashicorp repo
+  kubernetes.core.helm_repository:
+    name: hashicorp
+    repo_url: "https://helm.releases.hashicorp.com"
 
+- name: Hashicorp Vault
+  kubernetes.core.helm:
+    name: vault
+    chart_ref: hashicorp/vault
+    release_namespace: vault
+    chart_version: "0.30.0"
+    create_namespace: true
+    wait: true
+    values:
+      server:
+#        dataStorage:
+#          size: 4Gi
+        ingress:
+          enabled: true
+          annotations:
+            cert-manager.io/cluster-issuer: selfsigned-issuer
+          hosts:
+            - host: vault.192.168.56.190.sslip.io
+              paths: []
+
+
+          tls:
+            - secretName: vault-tls
+              hosts:
+                - vault.192.168.56.190.sslip.io
+
+
+
+- name: cnpg repo
+  kubernetes.core.helm_repository:
+    name: cnpg
+    repo_url: "https://cloudnative-pg.github.io/charts"
+
+- name: cnpg
+  kubernetes.core.helm:
+    name: cnpg
+    chart_ref: cnpg/cloudnative-pg
+    release_namespace: cnpg-system
+    chart_version: "v0.23.1"
+    create_namespace: true
+    wait: true
+#    values:
+
+
+- name: n8n
+  kubernetes.core.helm:
+    name: n8n
+    chart_ref: oci://8gears.container-registry.com/library/n8n
+    release_namespace: n8n
+    chart_version: "1.0.6"
+    create_namespace: true
+    wait: true
+    values:
+
+      main:
+        persistence:
+          enabled: true
+          type: dynamic
+        extraEnv:
+          N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS:
+            value: "true"
+
+        config:
+          webhook:
+            url: https://n8n.192.168.56.190.sslip.io/
+          n8n:
+            runners:
+              enabled: true
+            hide_usage_page: true
+
+#          db:
+#            type: postgresdb
+#            postgresdb:
+#              host: db-rw
+#              user: n8n
+#              #        password: password is read from cnpg db-app secretKeyRef
+#              pool:
+#                size: 10
+#              ssl:
+#                enabled: true
+#                reject_Unauthorized: true
+#                ca_file: "/home/ssl/certs/postgresql/ca.crt"
+        secret:
+          n8n:
+            encryption_key: "pzEhG8w0vjz7px9O3kbcrNASYDzbvnNV3us7"
+
+#        extraEnv:
+#          DB_POSTGRESDB_PASSWORD:
+#            valueFrom:
+#              secretKeyRef:
+#                name: db-app
+#                key: password
+#        # Mount the CNPG CA Cert into N8N container
+
+#        # TODO: create mount for /files
+#        extraVolumeMounts:
+#          - name: n8n-data
+#            mountPath: /home/node/.n8n
+#            readOnly: false
+##
+#        extraVolumes:
+#          - name: n8n-data
+
+#            secret:
+#              secretName: db-ca
+#              items:
+#                - key: ca.crt
+#                  path: ca.crt
+        resources:
+          limits:
+            memory: 2048Mi
+          requests:
+            memory: 512Mi
+      ingress:
+        enabled: true
+#        className: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: selfsigned-issuer
+          nginx.ingress.kubernetes.io/proxy-body-size: "0"
+          nginx.ingress.kubernetes.io/proxy-buffering: "off"
+          nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+          nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        hosts:
+          - host: n8n.192.168.56.190.sslip.io
+            paths:
+              - /
+
+        tls:
+          - secretName: n8n-ingress-tls
+            hosts:
+              - n8n.192.168.56.190.sslip.io
+        # cnpg DB cluster request
+#        extraManifests:
+#          - apiVersion: postgresql.cnpg.io/v1
+#            kind: Cluster
+#            metadata:
+#              name: db
+#            spec:
+#              instances: 1
+#              bootstrap:
+#                initdb:
+#                  database: n8n
+#                  owner: n8n
+#              postgresql:
+#                parameters:
+#                  shared_buffers: "64MB"
+#              resources:
+#                requests:
+#                  memory: "512Mi"
+#                limits:
+#                  memory: "512Mi"
+#              storage:
+#                size: 1Gi
+
+
+#- name: Backup n8n database
+#  shell: |
+#    POD=$(kubectl get pods -n n8n -o jsonpath='{.items[].metadata.name}' | head -1)
+#    kubectl cp -n n8n "$POD":/home/node/.n8n/database.sqlite /vagrant/data/n8n/database.sqlite
+#
+#
+- name: Restore backup n8n database
+  shell: |
+    POD=$(kubectl get pods -n n8n -o jsonpath='{.items[].metadata.name}' | head -1)
+    kubectl cp -n n8n /vagrant/data/n8n/database.sqlite "$POD":/home/node/.n8n/database.sqlite
+
+    kubectl delete -n n8n pod "$POD"
+
+
+
+#- name: Backup gitea database
+#  shell: |
+#    kubectl exec -it -n gitea gitea-postgresql-0  -- bash -c 'PGPASSWORD="$(cat $POSTGRES_PASSWORD_FILE)" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DATABASE"' > /vagrant/data/gitea/database-backup.sql
+#
+#
+- name: Restore backup gitea database
+  shell: |
+    kubectl exec -it -n gitea gitea-postgresql-0  -- bash -c 'PGPASSWORD="$(cat $POSTGRES_PASSWORD_FILE)" psql -U "$POSTGRES_USER" -c "drop schema public cascade; create schema public;"'
+    cat /vagrant/data/gitea/database-backup.sql | kubectl exec -it -n gitea gitea-postgresql-0  -- bash -c 'PGPASSWORD="$(cat $POSTGRES_PASSWORD_FILE)" psql -U "$POSTGRES_USER"' >/dev/null
+
+
+# kubectl exec -n gitea -it gitea-65668565c4-2vfv6 -- bash
+# gitea admin user generate-access-token --username gitea_admin --raw
+
+# TODO: how to regenerate access token
+
+# TODO: create job to create a secret with the generated access token
+# Teaches me:
+# - Services accounts
+# - Jobs
+# - Gitea
