@@ -48,20 +48,23 @@ frontend kube_api
     default_backend control_plane
 
 # HTTP Backend
+# TODO: redirect to https instead of letting Kubernetes do that
 backend worker
     balance roundrobin
     mode http
+    timeout queue 10s
     #option httpchk GET /
     {% for server in groups['worker'] %}
-    server {{ server }} {{ hostvars[server]['node_ip_address'] }}:80 check
+    server {{ server }} {{ hostvars[server]['node_ip_address'] }}:80 check maxconn 30
     {% endfor %}
 
 # HTTPS Backend (TCP Mode)
 backend worker_https
     mode tcp
     balance roundrobin
+    timeout queue 10s
     {% for server in groups['worker'] %}
-    server {{ server }}_ssl {{ hostvars[server]['node_ip_address'] }}:443 check
+    server {{ server }}_ssl {{ hostvars[server]['node_ip_address'] }}:443 check maxconn 30
     {% endfor %}
 
 
@@ -69,8 +72,9 @@ backend worker_https
 backend control_plane
     mode tcp
     balance roundrobin
+    timeout queue 10s
     {% for server in groups['control_plane'] %}
-    server {{ server }}_ssl {{ hostvars[server]['node_ip_address'] }}:6443 check
+    server {{ server }}_ssl {{ hostvars[server]['node_ip_address'] }}:6443 check maxconn 10
     {% endfor %}
 
 
