@@ -14,9 +14,27 @@
   ansible.builtin.apt:
     deb: https://github.com/aquasecurity/kube-bench/releases/download/v0.10.4/kube-bench_0.10.4_linux_{{ arch }}.deb
 
+- name: K9s
+  ansible.builtin.apt:
+    deb: https://github.com/derailed/k9s/releases/download/v0.50.6/k9s_linux_amd64.deb
 
 - name: Install Argocd cli
   ansible.builtin.get_url:
     url: https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-{{ arch }}
     dest: /usr/local/bin/argocd
     mode: '0755'
+
+
+- name: Install Gitea cli
+  ansible.builtin.get_url:
+    url: https://dl.gitea.com/tea/0.9.2/tea-0.9.2-linux-{{ arch }}
+    dest: /usr/local/bin/tea
+    mode: '0755'
+
+- name: Install Longhorn cli
+  ansible.builtin.get_url:
+    url: https://github.com/longhorn/cli/releases/download/v1.7.3/longhornctl-linux-{{ arch }}
+    dest: /usr/local/bin/longhornctl
+    mode: '0755'
+
+
