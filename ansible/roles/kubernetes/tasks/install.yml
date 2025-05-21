@@ -53,8 +53,25 @@
   command: apt-mark hold kubelet kubeadm kubectl
   changed_when: false
 
+- name: Configure kubectl auto-completion
+  become: false
+  lineinfile:
+    path: ~/.bashrc
+    line: 'source <(kubectl completion bash)'
+    state: present
+    create: true
+    insertafter: EOF
+    backup: yes
 
-# TODO: add source <(kubectl completion bash) to ~/.bashrc
+- name: Configure helm auto-completion
+  become: false
+  lineinfile:
+    path: ~/.bashrc
+    line: 'source <(helm completion bash)'
+    state: present
+    create: true
+    insertafter: EOF
+    backup: yes
 
 # TODO: add to host if linux:
 #  sysctl net.ipv4.ip_unprivileged_port_start=0
