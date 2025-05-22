@@ -1,0 +1,102 @@
+- name: Add prometheus-community chart repo
+  kubernetes.core.helm_repository:
+    name: prometheus-community
+    repo_url: "https://prometheus-community.github.io/helm-charts"
+
+- name: kube-prometheus-stack
+  kubernetes.core.helm:
+    name: kube-prometheus-stack
+    chart_ref: prometheus-community/kube-prometheus-stack
+    release_namespace: monitoring
+    chart_version: "72.5.3"
+    create_namespace: true
+    wait: true
+    values:
+      alertmanager:
+        alertmanagerSpec:
+          storage:
+            volumeClaimTemplate:
+              spec:
+                #               storageClassName: gluster
+                accessModes: [ "ReadWriteOnce" ]
+                resources:
+                  requests:
+                    storage: 10Gi
+              selector: { }
+        ingress:
+          enabled: true
+          hosts:
+            - alertmanager.192.168.56.190.sslip.io
+          annotations:
+            cert-manager.io/cluster-issuer: selfsigned-issuer
+          tls:
+            - secretName: alertmanager-tls
+              hosts:
+                - alertmanager.192.168.56.190.sslip.io
+      prometheus:
+        ingress:
+          enabled: true
+          hosts:
+            - prometheus.192.168.56.190.sslip.io
+          annotations:
+            cert-manager.io/cluster-issuer: selfsigned-issuer
+          tls:
+            - secretName: prometheus-tls
+              hosts:
+                - prometheus.192.168.56.190.sslip.io
+        prometheusSpec:
+          serviceMonitorSelectorNilUsesHelmValues: false
+          storageSpec:
+            ## Using PersistentVolumeClaim
+            ##
+            volumeClaimTemplate:
+              spec:
+                #                storageClassName: gluster
+                accessModes: [ "ReadWriteOnce" ]
+                resources:
+                  requests:
+                    storage: 10Gi
+              selector: { }
+      grafana:
+        persistence:
+          enabled: true
+          type: sts
+          #          storageClassName: "storageClassName"
+          accessModes:
+            - ReadWriteOnce
+          size: 10Gi
+          finalizers:
+            - kubernetes.io/pvc-protection
+        ingress:
+          enabled: true
+          hosts:
+            - grafana.192.168.56.190.sslip.io
+          annotations:
+            cert-manager.io/cluster-issuer: selfsigned-issuer
+          tls:
+            - secretName: grafana-tls
+              hosts:
+                - grafana.192.168.56.190.sslip.io
+
+- name: Add Cilium chart repo
+  kubernetes.core.helm_repository:
+    name: cilium
+    repo_url: "https://helm.cilium.io/"
+
+- name: Cilium Tetragon
+  kubernetes.core.helm:
+    name: tetragon
+    chart_ref: cilium/tetragon
+    release_namespace: kube-system
+    #    chart_version: "4.12.2"
+    create_namespace: true
+    wait: true
+    values:
+      tetragon:
+        prometheus:
+          serviceMonitor:
+            enabled: true
+      tetragonOperator:
+        prometheus:
+          serviceMonitor:
+            enabled: true

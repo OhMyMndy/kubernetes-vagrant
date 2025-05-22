@@ -54,7 +54,7 @@ Vagrant.configure(2) do |config|
         end
 
         if group == "worker"
-          vm.vm.disk :disk, name: "longhorn", size: "100GB"
+          vm.vm.disk :disk, name: "longhorn", size: "200GB"
           is_worker = true
         end
 
@@ -76,7 +76,7 @@ Vagrant.configure(2) do |config|
           trigger.warn = "Draining node..."
           trigger.run = { inline: "vagrant ssh control-plane-1 -c \"
               kubectl cordon #{host};
-              kubectl drain --grace-period=60 --disable-eviction --ignore-daemonsets --delete-emptydir-data #{host};
+              timeout 120 kubectl drain --grace-period=60 --disable-eviction --ignore-daemonsets --delete-emptydir-data #{host};
               kubectl delete node #{host}\""
           }
         end

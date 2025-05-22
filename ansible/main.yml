@@ -20,7 +20,7 @@
   tasks:
 
     - name: Disk
-      when: inventory_hostname in (groups['worker'] | first)
+      when: inventory_hostname in (groups['worker'])
       ansible.builtin.import_role:
         name: disk
 
@@ -82,3 +82,14 @@
       ansible.builtin.import_role:
         name: kubernetes
         tasks_from: finalize
+
+
+- name: Observability
+  hosts: kubernetes
+  any_errors_fatal: true
+  tasks:
+    - name: Observability
+      when: inventory_hostname == (groups['control_plane'] | first)
+      ansible.builtin.import_role:
+        name: kubernetes
+        tasks_from: observability

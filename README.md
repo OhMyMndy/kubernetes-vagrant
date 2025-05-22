@@ -5,12 +5,10 @@ This is an up-to-date configuration for practicing the performance based Kuberne
 The setup contains multiple Vagrant virtual machines (Virtualbox and libvirt are tested) which are part of the Kubernetes cluster.
 
 
-## Components:
+## Features:
 - Kubernetes 1.32.4, set up with Kubeadm through Ansible playbook
 - Cilium as CNI and for networking policies and Kubeproxy replacement
-
-
-## Features
+- Longhorn for storage
 
 - Setup and configuration through Ansible
 - Automatic upgrading of Kubernetes version when changing Kubernetes version in Ansible config
@@ -25,6 +23,10 @@ Run `vagrant up --provision`
 
 
 # Applications
+
+### Longhorn
+
+https://longhorn.192.168.56.190.sslip.io
 
 ### N8n
 
@@ -41,6 +43,21 @@ https://gitea.192.168.56.190.sslip.io/
 username: `gitea_admin`
 
 password `r8sA8CPHD9!bt6d`
+
+
+### Grafana
+
+https://grafana.192.168.56.190.sslip.io/
+
+username: `admin`
+
+password: `prom-operator`
+
+
+### Prometheus
+
+https://prometheus.192.168.56.190.sslip.io/query
+
 
 ## To do
 
