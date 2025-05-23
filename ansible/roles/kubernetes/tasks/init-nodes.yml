@@ -1,0 +1,15 @@
+- name: Kubernetes etc directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/kubernetes/
+    state: directory
+    mode: '0775'
+
+- name: Copy Kubelet resolv.conf
+  become: true
+  template:
+    src: resolv.conf
+    dest: /etc/kubernetes/resolv.conf
+    owner: root
+    group: root
+    mode: 0644

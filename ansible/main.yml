@@ -56,6 +56,11 @@
         name: kubernetes
         tasks_from: install
 
+    - name: Init nodes
+      ansible.builtin.import_role:
+        name: kubernetes
+        tasks_from: init-nodes
+
     - name: Configure control plane
       when: inventory_hostname in (groups['control_plane'] | first)
       ansible.builtin.import_role:

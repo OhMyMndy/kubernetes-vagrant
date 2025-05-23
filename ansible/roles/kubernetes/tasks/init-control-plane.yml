@@ -1,5 +1,24 @@
 # TODO: set node_labels
 
+
+- name: Kubernetes etc directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/kubernetes/
+    state: directory
+    mode: '0775'
+
+
+- name: Copy Kubeadm config
+  become: true
+  template:
+    src: kubeadm-config.yaml.j2
+    dest: /etc/kubernetes/kubeadm-config.yaml
+    owner: root
+    group: root
+    mode: 0644
+
+
 - name: Kubeadm init
   become: true
   register: ret
@@ -11,12 +30,8 @@
     if [ ! -d /var/lib/etcd/member ]; then
       kubeadm config images pull
 
-      kubeadm init --kubernetes-version="{{ kubernetes_major_version }}.{{ kubernetes_minor_version }}"\
-          --pod-network-cidr="{{ pod_network_cidr }}" \
-          --service-cidr="{{ service_cidr }}" \
-          --control-plane-endpoint="{{ node_ip_address }}" \
-          --apiserver-advertise-address="{{ node_ip_address }}" \
-          --skip-phases=addon/kube-proxy
+      kubeadm init --skip-phases=addon/kube-proxy \
+          --config /etc/kubernetes/kubeadm-config.yaml
     else
       # Run a kubectl command, it should work since we ran kubeadm before
       sudo -u vagrant kubectl get nodes

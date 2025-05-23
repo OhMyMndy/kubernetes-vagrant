@@ -102,6 +102,12 @@
         annotations:
           cert-manager.io/cluster-issuer: selfsigned-issuer
 
+
+- name: Wait for Longhorn to be deployed
+  shell: |
+    kubectl rollout status -n longhorn-system daemonset longhorn-csi-plugin 
+
+
 - name: Argo Repo
   kubernetes.core.helm_repository:
     name: argo
